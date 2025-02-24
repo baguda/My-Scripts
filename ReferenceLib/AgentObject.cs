@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CogSim
@@ -108,7 +109,7 @@ namespace CogSim
         }
 
         public AgentObjectComponent AgentComp => gameObject.GetComponent<AgentObjectComponent>();
-
+        public SimulationManager Manager => Finder.Manager;
         public new string Name = "Agent";
         public new string Description = "Simulated organism";
         public AgentObject(GameObject gameObject, string id, Vector3Int position) : base(gameObject, id, position)
@@ -178,6 +179,27 @@ namespace CogSim
         public void DrawIntentionInGUI()
         {
 
+        }
+        public Vector3Int[] AdjacentTiles
+        {
+            get
+            {
+                return new Vector3Int[]
+                {
+                    Position + new Vector3Int(1,0,0),
+                    Position + new Vector3Int(0,0,1),
+                    Position + new Vector3Int(-1,0,0),
+                    Position + new Vector3Int(0,0,-1)
+                };
+            }
+        }
+
+        public IEnumerable<Vector3Int> PathableTiles()
+        {
+            foreach (var ind in AdjacentTiles)
+            {
+                if (Manager.IsPathable(ind)) yield return ind;
+            }
         }
     }
 }

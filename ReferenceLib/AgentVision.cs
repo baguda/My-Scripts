@@ -16,6 +16,7 @@ namespace CogSim
         public BehaviorType curBehavior;
         public StrategyType curStrategy;
         public Act IntendedAct;
+        public float frustration;
         public Vector3Int AffordanceTarget => curAffordance.GetNextWaypoint;
         public Vector3Int PolicyTarget => curPolicy.GetNextWaypoint;
         /*
@@ -24,7 +25,7 @@ namespace CogSim
          * The agent will select the act based on the affordance waypoints.
          * When needed, the agent will update the affordance based on the policy waypoints
          * When needed, the policy resets based on the selected strategy
-         * 
+         * rrr
          */
 
         public Behavior(AgentObject agentObject)
@@ -68,6 +69,7 @@ namespace CogSim
         }
         private Policy EngagementPhantasia()
         {
+            
             Policy result = new Policy();
             /*
              * imagined path to strategy - 
@@ -88,7 +90,10 @@ namespace CogSim
             return Act.Stay; 
         }
 
-
+        public SensoryMatrix GetAndUpdateFreeEnergy()
+        {
+            return freeEnergy = agent.Senses.observation.ActualizeExpectation(agent.Foresight.expectation);
+        }
 
 
 
@@ -102,11 +107,14 @@ namespace CogSim
         protected BehaviorTier() { }
         public virtual Vector3Int GetNextWaypoint=>waypoints.Peek();
         public virtual Vector3Int PopNextWaypoint=>waypoints.Dequeue();
-
+        public virtual float Frustration()
+        {
+            return 1f;
+        }
 
     }
     public class Policy : BehaviorTier
-    {    
+    {
         public Policy() { }
 
 
@@ -165,7 +173,7 @@ namespace CogSim
         public void Exhaustion() 
         {
             agent.Energy -= 2;
-        } //Decrease Energy to do Action
+        } //Decrease Energy due to Action
 
 
     
@@ -173,23 +181,37 @@ namespace CogSim
 
     public class Foresight
     {
-        /*
-         * This class will do the predictive processes 
-         * 
-         */
         private AgentObject agent;
+        public SensoryMatrix observation => agent.Senses.observation;
+        public SensoryMatrix expectation;
         public Foresight(AgentObject agent) { this.agent = agent; }
-        public SensoryMatrix GetExpectationMatrix()
+        // action prediction
+        public SensoryMatrix GetExpectationMatrix(Vector3Int location)
         {
-            return new SensoryMatrix();
+            return observation.PredictExpectation(observation,location);
         }
+        public List<SensoryMatrix> GetAllExpectationMatrix()
+        {
+            return agent.PathableTiles()
+                        .Select(site => GetExpectationMatrix(site))
+                        .ToList();
+        }
+        public SensoryMatrix GetandUpdateBestExpectation()
+        {
+            List<SensoryMatrix> expectations = GetAllExpectationMatrix();
+            if (expectations == null || expectations.Count == 0)
+                return default;
+
+            return expectation = expectations.Aggregate((best, next) => next.bearing.magnitude < best.bearing.magnitude ? next : best);
+        }
+        // affordance prediction
     }
     public class Senses
     {
         public List<Sight> sights; //sight vestors 
         public AgentObject agentObject;
         public Vector3Int position;
-        public Vector3 bearings;
+        public SensoryMatrix observation;
         public bool FoodSighted => AllVisibleFood.Any();
         public bool AgentSighted => AllVisibleAgents.Any();
 
@@ -288,11 +310,11 @@ namespace CogSim
             
              
         }
-        public SensoryMatrix GetObservationMatrix(Vector3Int position)
+        public SensoryMatrix GetAndUpdateObservation(Vector3Int position)
         {
             sights = SenseSights(agentObject.visionRange).ToList();
             this.position = position;
-            return new SensoryMatrix(this, position);
+            return observation = new SensoryMatrix(this, position);
 
         }
 
@@ -407,10 +429,6 @@ namespace CogSim
 
 
 
-
-
-
-
     public enum BehaviorType
     {
         RestSeeking = 0,
@@ -434,5 +452,20 @@ namespace CogSim
         Stay = 4
     }
 }
-
+/*\
+ *
+ 
+ * Well, as much as I like SOS 2 with the spaceship building, launching into space, and maintaining the colony in space. I am not a fan of
+ * their space battle system, nor of their orbit-limited space travel. This led me to want to develop an alternate space-system for the RimWorld game
+ * I called the mod SimpleSpace but it was never officially launched to steam. The mod added a new space map system where similar to SOS2 the player would byuild a spaceship and 
+ * launch to orbit. But this time once the player gets to orbit they have another gizmo button that is to "Leave Orbit" (similar to SOS2's go to new planet button). 
+ * When selected, the mod would generate a new map that was technically the same as one of the normal colony maps, except the terrian was textured to look like space, the spaceship 
+ * is represented by a single pawn that is in the space map, and there are buildings that look like plants, moons and the sun that are on the space map that the spaceship pawn can move to
+ * Once nearby the spaceship pawn will get an option to land at the new planet. Here it would be awesome if I could spawn an whole new planet with a new world map but RimWorld is not setup for this
+ * This new spacemap is a "zoomed-out" representation of the RimWorld and its local space. On this map we can have space combate that is more dynamic than SOS2, where the spaceship pawns would 
+ * shoot at each other and have shields. The interior of the space ship will still be represented on its own map like in SOS2, however, durign combat instead of random projectiles 
+ * coming in from random places like in SOS2, the projectiles will correspond to the attacks taken by the spaceship pawn on the space-map. Additionally, I was looking at creating 
+ * a dynamic space-motion system for spaceship pawns on the space map, so the movement feels more space-like
+ *
+\*/
 

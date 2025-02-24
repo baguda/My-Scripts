@@ -27,8 +27,8 @@ namespace CogSim
             this.toFood = MapUtility.RelativeVectorsTo(observation.AllVisibleFood.Select(s => s.position).ToHashSet(), observation.position).ToList();
             this.toAgents = MapUtility.RelativeVectorsTo(observation.AllVisibleAgents.Select(s => s.position).ToHashSet(), observation.position).ToList();
             type =  MatrixType.Observation;
-            bearing = observation.agentObject.Behavior.curAffordance.GetNextWaypoint - position;
-
+            bearing = observation.agentObject.Behavior.curAffordance.GetNextWaypoint  - position;
+            
         }
 
         public float BearingFreeEnergy() => bearing.magnitude;
@@ -111,7 +111,7 @@ namespace CogSim
 
 
         // Method to calculate free energy matrix
-        public static SensoryMatrix ActualizeExpectation(SensoryMatrix observation, SensoryMatrix expectation)
+        public SensoryMatrix ActualizeExpectation(SensoryMatrix observation, SensoryMatrix expectation)
         {
             SensoryMatrix freeEnergy = new SensoryMatrix();
             freeEnergy.position = observation.position; // Assuming position doesn't change
@@ -124,7 +124,19 @@ namespace CogSim
             freeEnergy.type = MatrixType.FreeEnergy;
             return freeEnergy;
         }
+        public SensoryMatrix ActualizeExpectation(SensoryMatrix expectation)
+        {
+            SensoryMatrix freeEnergy = new SensoryMatrix();
+            freeEnergy.position = this.position; // Assuming position doesn't change
 
+            freeEnergy.toWalls = CalculateFreeEnergy(this.toWalls, expectation.toWalls);
+            freeEnergy.toEdges = CalculateFreeEnergy(this.toEdges, expectation.toEdges);
+            freeEnergy.toFood = CalculateFreeEnergy(this.toFood, expectation.toFood);
+            freeEnergy.toAgents = CalculateFreeEnergy(this.toAgents, expectation.toAgents);
+            freeEnergy.bearing = this.bearing - expectation.bearing;
+            freeEnergy.type = MatrixType.FreeEnergy;
+            return freeEnergy;
+        }
         // Helper method to calculate free energy for a given set of vectors
         private static List<Vector3> CalculateFreeEnergy(List<Vector3> observed, List<Vector3> expected)
         {
@@ -183,7 +195,7 @@ namespace CogSim
             return closest;
         }
 
-        public static SensoryMatrix PredictExpectation(SensoryMatrix observation, Vector3Int newLocation)
+        public SensoryMatrix PredictExpectation(SensoryMatrix observation, Vector3Int newLocation)
         {
             SensoryMatrix expectation = new SensoryMatrix();
             expectation.position = newLocation;

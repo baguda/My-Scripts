@@ -101,27 +101,7 @@ namespace CogSim
                 targetLocation = AgentObject.Position;
             }
         }
-        public Vector3Int[] AdjacentTiles
-        {
-            get
-            {
-                return new Vector3Int[]
-                {
-                    AgentObject.Position + new Vector3Int(1,0,0),
-                    AgentObject.Position + new Vector3Int(0,0,1),
-                    AgentObject.Position + new Vector3Int(-1,0,0),
-                    AgentObject.Position + new Vector3Int(0,0,-1)
-                };
-            }
-        }
 
-        public IEnumerable<Vector3Int> PathableTiles()
-        {
-            foreach (var ind in AdjacentTiles)
-            {
-                if (Manager.IsPathable(ind)) yield return ind;
-            }
-        }
 
 
         // Helper method to check if a position is within the range (Manhattan distance)
