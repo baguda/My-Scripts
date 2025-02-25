@@ -17,6 +17,15 @@ namespace CogSim
         public StrategyType curStrategy;
         public Act IntendedAct;
         public float frustration;
+        private trigger curTrigger;
+        public enum trigger
+        {
+            Action = 1,
+            Affordance = 2,
+            Policy = 3,
+            Strategy = 4,
+            Behavior = 5
+        }
         public Vector3Int AffordanceTarget => curAffordance.GetNextWaypoint;
         public Vector3Int PolicyTarget => curPolicy.GetNextWaypoint;
         /*
@@ -26,6 +35,9 @@ namespace CogSim
          * When needed, the agent will update the affordance based on the policy waypoints
          * When needed, the policy resets based on the selected strategy
          * rrr
+         * 
+         * 
+         * 
          */
 
         public Behavior(AgentObject agentObject)
@@ -92,10 +104,38 @@ namespace CogSim
 
         public SensoryMatrix GetAndUpdateFreeEnergy()
         {
-            return freeEnergy = agent.Senses.observation.ActualizeExpectation(agent.Foresight.expectation);
+            return freeEnergy = agent.Senses.observation.ActualizeExpectation(agent.Foresight.Expectation);
         }
+        public void Upkeep()
+        {
 
-
+        }
+        public trigger analyzeFreeEnergy()
+        {
+            /*
+             * Action = default
+             * 
+             * Affordance tigger: \
+             *  When the agent reaches the final node in its affordance waypoints
+             *  When a' number of new walls or b' number of new edges 
+             *  When policy is updated
+             * Policy trigger: 
+             *  When the agent grows frustrated with the path
+             *  When Strategy is updated
+             * Strategy trigger: 
+             *  When the agent reaches the final policy waypoint
+             *  When Behavior is updated 
+             * Behavior trigger: 
+             *  When behavior objective is reached 
+             * Special Triggers:
+             *  Resource is seen
+             *  -if is current seeking:
+             *  -if is not current seeking:
+             *  Other Agent is seen
+             *  
+             */
+            return trigger.Action;
+        }
 
     }
     public abstract class BehaviorTier
@@ -183,12 +223,12 @@ namespace CogSim
     {
         private AgentObject agent;
         public SensoryMatrix observation => agent.Senses.observation;
-        public SensoryMatrix expectation;
+        public SensoryMatrix Expectation;
         public Foresight(AgentObject agent) { this.agent = agent; }
         // action prediction
         public SensoryMatrix GetExpectationMatrix(Vector3Int location)
         {
-            return observation.PredictExpectation(observation,location);
+            return observation.PredictExpectation(location);
         }
         public List<SensoryMatrix> GetAllExpectationMatrix()
         {
@@ -202,7 +242,7 @@ namespace CogSim
             if (expectations == null || expectations.Count == 0)
                 return default;
 
-            return expectation = expectations.Aggregate((best, next) => next.bearing.magnitude < best.bearing.magnitude ? next : best);
+            return Expectation = expectations.Aggregate((best, next) => next.bearing.magnitude < best.bearing.magnitude ? next : best);
         }
         // affordance prediction
     }

@@ -136,14 +136,14 @@ namespace CogSim
         public override void Upkeep() 
         {
             /*
-             * take observation
-             * calculate free energy 
-             * pass free ernergy matrix to Behavior
+             * take observation - Senses.GetAndUpdateObservation(current location)
+             * Query prior expectation -> forsight.Expectation
+             * calculate free energy -> Behavior.GetAndUpdateFreeEnergy()
              * behavior.Upkeep()
-             *  checks for affordance update need
-             *      check for Policy update need
-             *          check for Strategy update need
-             *              check for Behavior Update 
+             *  checks for affordance update need       |
+             *      check for Policy update need        |
+             *          check for Strategy update need  |
+             *              check for Behavior Update   | behavior.AnalyzeFreeEnergy
              *  predict possible actions 
              *  Choose best action and build expectation matrix 
              *  create memory of the upkeep, store expectation and observation matrix

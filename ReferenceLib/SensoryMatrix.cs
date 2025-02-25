@@ -15,7 +15,7 @@ namespace CogSim
         public List<Vector3> toAgents;
         internal MatrixType type;
         public Vector3 bearing; // vector from position to 
-        
+        public float[] Magnitudes => toWalls.Concat(toEdges).Concat(toFood).Concat(toAgents).Select(v => v.magnitude).ToArray();
 
 
         // Constructor to initialize the SensoryMatrix from an Observation
@@ -58,8 +58,8 @@ namespace CogSim
 
         public float FreeEnergyVariance()
         {
-            var magnitudes = toWalls.Concat(toEdges).Concat(toFood).Concat(toAgents).Select(v => v.magnitude).ToArray();
-            return CalculateVariance(magnitudes);
+            
+            return CalculateVariance(this.Magnitudes);
         }
 
         // Standard Deviation for all vectors
@@ -107,8 +107,26 @@ namespace CogSim
 
             return frequencies[0]; // Return the first (most frequent) value
         }
+        // Calculate the Z-score for a given Vector3 field
+        public float FreeEnergyZScore(Vector3 field)
+        {
 
+            return ZScore(field, Magnitudes);
+        }
+        public float ZScore(Vector3 field, float[] magnitudes)
+        {
+            //var magnitudes = toWalls.Concat(toEdges).Concat(toFood).Concat(toAgents).Select(v => v.magnitude).ToArray();
 
+            if (magnitudes.Length == 0) return 0f; // Avoid division by zero
+
+            float mean = magnitudes.Average();
+            float stdDev = Mathf.Sqrt(CalculateVariance(magnitudes));
+
+            if (stdDev == 0) return 0f; // If no variance, Z-score is meaningless
+
+            float fieldMagnitude = field.magnitude;
+            return (fieldMagnitude - mean) / stdDev;
+        }
 
         // Method to calculate free energy matrix
         public SensoryMatrix ActualizeExpectation(SensoryMatrix observation, SensoryMatrix expectation)
@@ -126,20 +144,34 @@ namespace CogSim
         }
         public SensoryMatrix ActualizeExpectation(SensoryMatrix expectation)
         {
-            SensoryMatrix freeEnergy = new SensoryMatrix();
-            freeEnergy.position = this.position; // Assuming position doesn't change
+            if (this.type == MatrixType.Observation && expectation.type == MatrixType.Expectation)
+            {
+                SensoryMatrix freeEnergy = new SensoryMatrix();
+                freeEnergy.position = this.position; // Assuming position doesn't change
 
-            freeEnergy.toWalls = CalculateFreeEnergy(this.toWalls, expectation.toWalls);
-            freeEnergy.toEdges = CalculateFreeEnergy(this.toEdges, expectation.toEdges);
-            freeEnergy.toFood = CalculateFreeEnergy(this.toFood, expectation.toFood);
-            freeEnergy.toAgents = CalculateFreeEnergy(this.toAgents, expectation.toAgents);
-            freeEnergy.bearing = this.bearing - expectation.bearing;
-            freeEnergy.type = MatrixType.FreeEnergy;
-            return freeEnergy;
+                freeEnergy.toWalls = CalculateFreeEnergy(this.toWalls, expectation.toWalls);
+                freeEnergy.toEdges = CalculateFreeEnergy(this.toEdges, expectation.toEdges);
+                freeEnergy.toFood = CalculateFreeEnergy(this.toFood, expectation.toFood);
+                freeEnergy.toAgents = CalculateFreeEnergy(this.toAgents, expectation.toAgents);
+                freeEnergy.bearing = this.bearing - expectation.bearing;
+                freeEnergy.type = MatrixType.FreeEnergy;
+                return freeEnergy;
+            }
+            else
+            {
+                Debug.LogError("SensoryMatrix.ActualizeExpectation: ERROR! >> Incorrect Matrix type(s)");
+                return this;
+            }
         }
-        // Helper method to calculate free energy for a given set of vectors
+        /// <summary>
+        /// Helper method to calculate free energy for a given set of vectors
+        /// </summary>
+        /// <param name="observed"></param>
+        /// <param name="expected"></param>
+        /// <returns></returns>
         private static List<Vector3> CalculateFreeEnergy(List<Vector3> observed, List<Vector3> expected)
         {
+            float DiffThresh = 0.01f;
             List<Vector3> result = new List<Vector3>();
 
             // Compare each observed vector to expected vectors
@@ -149,7 +181,7 @@ namespace CogSim
                 Vector3 difference = observedVector - closestExpected;
 
                 // If there's a significant difference, we consider this as free energy
-                if (difference.sqrMagnitude > 0.01f) // Adjust this threshold as needed
+                if (difference.sqrMagnitude > DiffThresh) // Adjust this threshold as needed
                 {
                     result.Add(difference); // Adding the difference vector as free energy
                 }
@@ -176,7 +208,12 @@ namespace CogSim
             return result;
         }
 
-        // Helper method to find the closest vector in the expected list to an observed vector
+        /// <summary>
+        /// Helper method to find the closest vector in the expected list to an observed vector
+        /// </summary>
+        /// <param name="observed"></param>
+        /// <param name="expected"></param>
+        /// <returns></returns>
         private static Vector3 FindClosestVector(Vector3 observed, List<Vector3> expected)
         {
             Vector3 closest = Vector3.zero;
@@ -197,6 +234,7 @@ namespace CogSim
 
         public SensoryMatrix PredictExpectation(SensoryMatrix observation, Vector3Int newLocation)
         {
+
             SensoryMatrix expectation = new SensoryMatrix();
             expectation.position = newLocation;
 
@@ -209,7 +247,29 @@ namespace CogSim
             expectation.type = MatrixType.Expectation;
             return expectation;
         }
+        public SensoryMatrix PredictExpectation(Vector3Int newLocation)
+        {
+            if(this.type == MatrixType.Observation)
+            {
+                SensoryMatrix expectation = new SensoryMatrix();
+                expectation.position = newLocation;
 
+                // Reorient vectors to the new location
+                expectation.toWalls = ReorientVectors(this.toWalls, this.position, newLocation);
+                expectation.toEdges = ReorientVectors(this.toEdges, this.position, newLocation);
+                expectation.toFood = ReorientVectors(this.toFood, this.position, newLocation);
+                expectation.toAgents = ReorientVectors(this.toAgents, this.position, newLocation);
+                expectation.bearing = ReorientVector(this.bearing, this.position, newLocation);
+                expectation.type = MatrixType.Expectation;
+                return expectation;
+            }
+            else
+            {
+                Debug.LogError("SensoryMatrix.PredictExpectation: ERROR! >> Incorrect Matrix type(s)");
+                return this;
+            }
+
+        }
         // Helper method to reorient vectors from an old position to a new position
         private static List<Vector3> ReorientVectors(List<Vector3> vectors, Vector3Int oldPosition, Vector3Int newPosition)
         {
